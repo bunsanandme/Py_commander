@@ -4,14 +4,29 @@ from PyQt5.QtCore import *
 import sys
 import os
 import subprocess
+from styleSheet import style
+import datetime
+
+
+def logger(func):
+    def wrapper(*args):
+        file = open(('logs.txt'), "a")
+        today = datetime.datetime.today()
+        file.write("{}-".format(today.strftime("%Y/%m/%d %H:%M")))
+        result = func(*args)
+        file.write("{}-".format(func.__name__) + "[INFO]: Entering {}\n".format(result))
+
+    return wrapper
 
 
 # Обьявляем класс самого окна
 # Обьявление начальнух двух директорий(поменяй на диски твоего компьютера)
 # И также флаг, в каком окне сейчас работаем
 # True - правое, False - левое
+path = ""
 
-class TotalCommander(QMainWindow):
+
+class PyCo(QMainWindow):
     directory = "E:"
     directory2 = "C:/"
     first_selected = True
@@ -20,7 +35,7 @@ class TotalCommander(QMainWindow):
     # Вызываем методы интерфейса и наследуемся
 
     def __init__(self):
-        super(TotalCommander, self).__init__()
+        super(PyCo, self).__init__()
         self.setupMenus()
         self.interface()
 
@@ -42,6 +57,8 @@ class TotalCommander(QMainWindow):
     # Добавляем CSS для стиля окон и корректируем геометрию
 
     def interface(self):
+        self.folder_icon = QIcon("folder.png")
+        self.file_icon = QIcon("file.png")
         self.grid = QGridLayout()
         self.grid.setSpacing(0)
         mainLayout = QVBoxLayout()
@@ -91,24 +108,10 @@ class TotalCommander(QMainWindow):
         widget.setLayout(mainLayout)
         self.setCentralWidget(widget)
 
-        self.setStyleSheet("""QWidget {
-         background-color: white;
-        }
-
-        QPushButton {
-         background: blue;
-        }
-        
-        QMenuBar {
-         background-color: blue;
-        }
-
-        QMenuBar::item {
-         background: blue;
-        }""")
+        self.setStyleSheet(style)
 
         self.setGeometry(70, 70, 500, 500)
-        self.setWindowIcon(QIcon('total.png'))
+        self.setWindowIcon(QIcon('total2.png'))
         self.setWindowTitle("PyCo")
 
     # Окно с ошибкой
@@ -123,15 +126,29 @@ class TotalCommander(QMainWindow):
 
     def about_message(self):
         ret = QMessageBox.question(self, 'Информация',
-                                   "По возникшим вопросам обращайтесь на эту почту: kanavin_maks@mail.ru",
+                                   "Хех, тут ничего :)",
                                    QMessageBox.Ok, QMessageBox.Ok)
+
+    def open_logs(self):
+        os.system("start logs.txt")
+
+    def delete_logs(self):
+        with open("logs.txt", "w"):
+            pass
+
     # Инициализация верхнего меню
     # Добавляем меню и привязываем действия
 
     def setupMenus(self):
+        self.open_logsAction = QAction("Просмотреть логи", self)
+        self.open_logsAction.triggered.connect(self.open_logs)
+        self.delete_logsAction = QAction("Очистить логи", self)
+        self.delete_logsAction.triggered.connect(self.delete_logs)
         self.aboutAction = QAction("О программе...", self)
         self.aboutAction.triggered.connect(self.about_message)
         self.helpMenu = self.menuBar().addMenu("Помощь")
+        self.helpMenu.addAction(self.open_logsAction)
+        self.helpMenu.addAction(self.delete_logsAction)
         self.helpMenu.addAction(self.aboutAction)
 
     # Самый важный метод - обновления окна
@@ -144,21 +161,35 @@ class TotalCommander(QMainWindow):
         names = os.listdir(self.directory)
 
         for name in names:
-            self.list1.addItem(name)
+            path = self.directory + "/" + name
+            if os.path.isdir(path):
+                item = QListWidgetItem(self.folder_icon, name)
+                self.list1.addItem(item)
+            else:
+                item = QListWidgetItem(self.file_icon, name)
+                self.list1.addItem(item)
 
     # Смена директории
     # Если нажали "...", то возвращаемся на каталог выше
     # Иначе спускаемся ниже
-
+    @logger
     def change_directory1(self, item):
-        if item.text() == "...":
+        name = item.text()
+        if name == "...":
             self.directory = self.directory.split("/")
             del self.directory[-1]
             self.directory = '/'.join(self.directory)
             self.update_list1()
         else:
-            self.directory += "/" + item.text()
-            self.update_list1()
+            if os.path.isfile(self.directory + "/" + name):
+                process = subprocess.Popen("start {}".format(name), cwd=self.directory, stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE, shell=True)
+                self.update_list1()
+            else:
+                self.directory += "/" + item.text()
+                path = self.directory
+                self.update_list1()
+        return self.directory
 
     # Аналогично выше, только для второй панели
 
@@ -169,17 +200,31 @@ class TotalCommander(QMainWindow):
         names = os.listdir(self.directory2)
 
         for name in names:
-            self.list2.addItem(name)
+            path = self.directory2 + "/" + name
+            if os.path.isdir(path):
+                item = QListWidgetItem(self.folder_icon, name)
+                self.list2.addItem(item)
+            else:
+                item = QListWidgetItem(self.file_icon, name)
+                self.list2.addItem(item)
 
+    @logger
     def change_directory2(self, item):
-        if item.text() == "...":
+        name = item.text()
+        if name == "...":
             self.directory2 = self.directory2.split("/")
             del self.directory2[-1]
             self.directory2 = '/'.join(self.directory2)
             self.update_list2()
         else:
-            self.directory2 += "/" + item.text()
-            self.update_list2()
+            if os.path.isfile(self.directory2 + "/" + name):
+                process = subprocess.Popen("start {}".format(name), cwd=self.directory2, stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE, shell=True)
+                self.update_list2()
+            else:
+                self.directory2 += "/" + item.text()
+                self.update_list2()
+        return self.directory2
 
     # Смена директории
     # Имитируем процесс через командную строки
@@ -344,6 +389,6 @@ class TotalCommander(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = TotalCommander()
+    window = PyCo()
     window.show()
     sys.exit(app.exec_())
